@@ -41,6 +41,7 @@
 #include "spatial_packets.h"
 
 #include <sensor_msgs/NavSatFix.h>
+#include <gps_common/GPSFix.h>
 #include <sensor_msgs/TimeReference.h>
 #include <sensor_msgs/Imu.h>
 #include <geometry_msgs/Twist.h>
@@ -140,11 +141,10 @@ int main(int argc, char *argv[]) {
 	int baud_rate;
 	std::string com_port;
 	std::string imu_frame_id;
-	std::string nav_sat_frame_id;
+	std::string gps_frame_id;
 	std::string rawsensors_magnetometer_frame_id;
 	std::string barometric_pressure_frame_id;
 	std::string temperature_frame_id;
-	std::string gnss_fix_type_id;
 	std::string topic_prefix;
 	std::stringstream gnssFixType;
 	tf::Quaternion orientation;
@@ -184,16 +184,16 @@ int main(int argc, char *argv[]) {
 	}
 
 	pnh.param("imu_frame_id", imu_frame_id, std::string("imu"));
-	pnh.param("nav_sat_frame_id", nav_sat_frame_id, std::string("gps"));
+	pnh.param("gps_frame_id", gps_frame_id, std::string("gps"));
 	pnh.param("rawsensors_magnetometer_frame_id", rawsensors_magnetometer_frame_id, std::string("rawsensors_magnetometer"));
 	pnh.param("barometric_pressure_frame_id", barometric_pressure_frame_id, std::string("barometric_pressure"));
 	pnh.param("temperature_frame_id", temperature_frame_id, std::string("temperature"));
 	pnh.param("topic_prefix", topic_prefix, std::string("an_device"));
-	pnh.param("GNSS_Fix_Type", gnss_fix_type_id, std::string("gnss_fix_type"));
 
 	// Initialise Publishers and Topics //
 	ros::Publisher imu_pub=nh.advertise<sensor_msgs::Imu>(topic_prefix + "/Imu",10);
 	ros::Publisher nav_sat_fix_pub=nh.advertise<sensor_msgs::NavSatFix>(topic_prefix + "/NavSatFix",10);
+	ros::Publisher gps_fix_pub=nh.advertise<gps_common::GPSFix>(topic_prefix + "/GPSFix",10);
 	ros::Publisher magnetic_field_pub=nh.advertise<sensor_msgs::MagneticField>(topic_prefix + "/MagneticField", 10);
 	ros::Publisher barometric_pressure_pub=nh.advertise<sensor_msgs::FluidPressure>(topic_prefix + "/BarometricPressure", 10);
 	ros::Publisher temperature_pub=nh.advertise<sensor_msgs::Temperature>(topic_prefix + "/Temperature", 10);	
@@ -236,6 +236,26 @@ int main(int argc, char *argv[]) {
 	nav_sat_fix_msg.altitude = 0.0;
 	nav_sat_fix_msg.position_covariance = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
 	nav_sat_fix_msg.position_covariance_type = 2; // fixed to variance on the diagonal
+
+
+	gps_common::GPSFix gps_fix_msg;
+	//values that couldnt get only by the system status:
+	gps_fix_msg.gdop = 0;
+	gps_fix_msg.pdop = 0;
+	gps_fix_msg.hdop = 0; 	//Satellites Packet
+	gps_fix_msg.vdop = 0;	//Satellites Packet
+	gps_fix_msg.tdop = 0;
+	gps_fix_msg.err_horz = 0;
+	gps_fix_msg.err_vert = 0;
+	gps_fix_msg.err_track = 0;
+	gps_fix_msg.err_speed = 0;
+	gps_fix_msg.err_climb = 0;
+	gps_fix_msg.err_time = 0;
+	gps_fix_msg.err_pitch = 0;
+	gps_fix_msg.err_roll = 0;
+	gps_fix_msg.err_dip = 0;
+	gps_fix_msg.status.satellites_used = 0; //Satellites Packet (raw)
+	gps_fix_msg.status.satellites_visible = 0; //Iterate over extended Satelites Packet
 
 	// MagneticField geometry_msg/magnetic_field
 	sensor_msgs::MagneticField magnetic_field_msg;
@@ -322,6 +342,9 @@ int main(int argc, char *argv[]) {
 	while(ros::ok() && !error)
 	{
 		ros::spinOnce();
+
+		//ToDo: Add support for UDP
+
 		bytes_received = PollComport(an_decoder_pointer(&an_decoder), an_decoder_size(&an_decoder));
 		if(bytes_received > 0)
 		{
@@ -373,7 +396,7 @@ int main(int argc, char *argv[]) {
 						// NAVSATFIX
 						nav_sat_fix_msg.header.stamp.sec=system_state_packet.unix_time_seconds;
 						nav_sat_fix_msg.header.stamp.nsec=system_state_packet.microseconds*1000;
-						nav_sat_fix_msg.header.frame_id=nav_sat_frame_id;
+						nav_sat_fix_msg.header.frame_id=gps_frame_id;
 						if((system_state_packet.filter_status.b.gnss_fix_type == 1) || 
 							(system_state_packet.filter_status.b.gnss_fix_type == 2))
 						{
@@ -400,6 +423,68 @@ int main(int argc, char *argv[]) {
 						nav_sat_fix_msg.position_covariance={pow(system_state_packet.standard_deviation[1],2), 0.0, 0.0,
 							0.0, pow(system_state_packet.standard_deviation[0],2), 0.0,
 							0.0, 0.0, pow(system_state_packet.standard_deviation[2],2)};						
+
+
+						//GPS Fix
+						gps_fix_msg.header.stamp.sec=system_state_packet.unix_time_seconds;
+						gps_fix_msg.header.stamp.nsec=system_state_packet.microseconds*1000;
+						gps_fix_msg.header.frame_id=gps_frame_id;
+
+						gps_fix_msg.latitude=system_state_packet.latitude * RADIANS_TO_DEGREES;
+						gps_fix_msg.longitude=system_state_packet.longitude * RADIANS_TO_DEGREES;
+						gps_fix_msg.altitude=system_state_packet.height;
+
+						gps_fix_msg.track=system_state_packet.orientation[2] * RADIANS_TO_DEGREES;
+
+						gps_fix_msg.speed=std::sqrt(system_state_packet.velocity[0]*system_state_packet.velocity[0] + system_state_packet.velocity[1]*system_state_packet.velocity[1]); //only postive!
+						gps_fix_msg.climb=system_state_packet.velocity[2];
+
+						gps_fix_msg.roll=system_state_packet.orientation[0] * RADIANS_TO_DEGREES;
+						gps_fix_msg.pitch=system_state_packet.orientation[1] * RADIANS_TO_DEGREES;
+						gps_fix_msg.dip=system_state_packet.orientation[2] * RADIANS_TO_DEGREES; //same as track!
+
+						gps_fix_msg.time=system_state_packet.unix_time_seconds + system_state_packet.microseconds*1000.0;
+
+						gps_fix_msg.err=std::sqrt(system_state_packet.standard_deviation[0]*system_state_packet.standard_deviation[0] + system_state_packet.standard_deviation[1]*system_state_packet.standard_deviation[1] + system_state_packet.standard_deviation[2]*system_state_packet.standard_deviation[2]); //only postive!
+
+						//ToDo: other err values could only be get with other Deviation Packets!
+
+						gps_fix_msg.position_covariance={pow(system_state_packet.standard_deviation[1],2), 0.0, 0.0,
+							0.0, pow(system_state_packet.standard_deviation[0],2), 0.0,
+							0.0, 0.0, pow(system_state_packet.standard_deviation[2],2)};						
+
+
+						gps_fix_msg.position_covariance_type = 0; //UNKNOWN
+
+						//GPS Status in GPS Fix
+						gps_fix_msg.status.header.stamp.sec=system_state_packet.unix_time_seconds;
+						gps_fix_msg.status.header.stamp.nsec=system_state_packet.microseconds*1000;
+						gps_fix_msg.status.header.frame_id=gps_frame_id;
+
+						gps_fix_msg.status.status=-1; //STATUS_NO_FIX 
+						if ((system_state_packet.filter_status.b.gnss_fix_type == 1) ||			//2D Fix
+							(system_state_packet.filter_status.b.gnss_fix_type == 2))			//3D Fix
+						{
+							gps_fix_msg.status.status=0;	//STATUS_FIX
+						}
+						else if ((system_state_packet.filter_status.b.gnss_fix_type == 3) ||	//SBAS
+							 (system_state_packet.filter_status.b.gnss_fix_type == 5))			//Omnistar/Starfire
+						{
+							gps_fix_msg.status.status=1; // STATUS_SBAS_FIX
+						}
+						else if ((system_state_packet.filter_status.b.gnss_fix_type == 6))		//RTK-Float
+						{
+							gps_fix_msg.status.status=2; //STATUS_GBAS_FIX
+						}
+						else if ((system_state_packet.filter_status.b.gnss_fix_type == 7) )		//RTK-Fix
+						{
+							gps_fix_msg.status.status=3; //STATUS_GBAS_FIX + 1 = RTK-Fix
+						}
+						else if ((system_state_packet.filter_status.b.gnss_fix_type == 4))		//DGPS
+						{
+							gps_fix_msg.status.status=18; //STATUS_DGPS_FIX
+						}
+
 
 
 						// TWIST
@@ -599,6 +684,16 @@ int main(int argc, char *argv[]) {
 							filter_status_msg.message  += "15. External Heading NOT Active. ";
 						}
 					}
+
+					// PUBLISH MESSAGES
+					nav_sat_fix_pub.publish(nav_sat_fix_msg);
+					gps_fix_pub.publish(gps_fix_msg);
+					twist_pub.publish(twist_msg);
+					imu_pub.publish(imu_msg);
+					system_status_pub.publish(system_status_msg);
+					filter_status_pub.publish(filter_status_msg);				
+					gnss_fix_type_pub.publish(gnss_fix_type_msgs);
+
 				}
 				#pragma endregion
 
@@ -611,6 +706,11 @@ int main(int argc, char *argv[]) {
 						pose_msg.position.y = ecef_position_packet.position[1];
 						pose_msg.position.z = ecef_position_packet.position[2];
 					}
+					// plus orientation from the last state message
+
+					//PUBLISH MESSAGE
+					pose_pub.publish(pose_msg);
+
 				}
 
 				// QUATERNION ORIENTATION STANDARD DEVIATION PACKET 
@@ -625,6 +725,8 @@ int main(int argc, char *argv[]) {
 						imu_msg.orientation_covariance[4] = quaternion_orientation_standard_deviation_packet.standard_deviation[1];
 						imu_msg.orientation_covariance[8] = quaternion_orientation_standard_deviation_packet.standard_deviation[2];
 					}
+
+					// will be published with the next system state packet!
 				}
 
 				// Setting up the magnetic field to display
@@ -653,23 +755,17 @@ int main(int argc, char *argv[]) {
 					// TEMPERATURE
 					temperature_msg.header.frame_id = rawsensors_magnetometer_frame_id;
 					temperature_msg.temperature = raw_sensors_packet.pressure_temperature;
+
+					// PUBLISH MESSAGES
+					magnetic_field_pub.publish(magnetic_field_msg);
+					barometric_pressure_pub.publish(barometric_pressure_msg);
+					temperature_pub.publish(temperature_msg);
 					
 				}
 
 				// Ensure that you free the an_packet when your done with it or you will leak memory                                  
 				an_packet_free(&an_packet);
-
-				// PUBLISH MESSAGES
-				nav_sat_fix_pub.publish(nav_sat_fix_msg);
-				twist_pub.publish(twist_msg);
-				imu_pub.publish(imu_msg);
-				system_status_pub.publish(system_status_msg);
-				filter_status_pub.publish(filter_status_msg);
-				magnetic_field_pub.publish(magnetic_field_msg);
-				barometric_pressure_pub.publish(barometric_pressure_msg);
-				temperature_pub.publish(temperature_msg);
-				pose_pub.publish(pose_msg);
-				gnss_fix_type_pub.publish(gnss_fix_type_msgs);
+		
 			}
 			
 			// Write the logs to the logger reset when counter is full

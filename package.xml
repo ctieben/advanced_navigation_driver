@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>ros1-driver</name>
+  <name>advanced_navigation_driver</name>
   <version>1.0.0</version>
   <description>The Advanced Navigation driver package for ROS</description>
 
@@ -12,8 +12,10 @@
 	
   <build_depend>roscpp</build_depend>
   <build_depend>std_msgs</build_depend>
+  <build_depend>gps_common</build_depend>
 	
   <run_depend>roscpp</run_depend>
   <run_depend>std_msgs</run_depend>
+  <run_depend>gps_common</run_depend>
 
 </package>
