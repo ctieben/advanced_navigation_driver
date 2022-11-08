@@ -42,6 +42,8 @@
 
 #include <sensor_msgs/NavSatFix.h>
 #include <gps_common/GPSFix.h>
+#include <nmea_msgs/Sentence.h>
+#include <mavros_msgs/RTCM.h>
 #include <sensor_msgs/TimeReference.h>
 #include <sensor_msgs/Imu.h>
 #include <geometry_msgs/Twist.h>
@@ -202,6 +204,7 @@ int main(int argc, char *argv[]) {
 	ros::Publisher system_status_pub=nh.advertise<diagnostic_msgs::DiagnosticStatus>(topic_prefix + "/SystemStatus",10);
 	ros::Publisher filter_status_pub=nh.advertise<diagnostic_msgs::DiagnosticStatus>(topic_prefix + "/FilterStatus",10);
 	ros::Publisher gnss_fix_type_pub=nh.advertise<std_msgs::String>(topic_prefix + "/GNSSFixType", 10);
+	ros::Publisher nmea_pub=nh.advertise<nmea_msgs::Sentence>(topic_prefix + "/NMEA",10);
 
 	#pragma region // Initialise messages
 
@@ -779,6 +782,15 @@ int main(int argc, char *argv[]) {
 		int n = generateGPGGA(nmea, system_state_packet);
 		ROS_WARN_STREAM(nmea);		
 		args.nmea = nmea;
+
+		nmea_msgs::Sentence nmea_msg;
+		nmea_msg.header.stamp.sec=system_state_packet.unix_time_seconds;
+		nmea_msg.header.stamp.nsec=system_state_packet.microseconds*1000;
+		nmea_msg.header.frame_id=gps_frame_id;
+		nmea_msg.sentence = std::string(nmea);
+
+		nmea_pub.publish(nmea_msg);
+
 		/*getargs(argc, argv, &args);
 		error = ntrip_initialise(&args, buf);
 		if(error){
