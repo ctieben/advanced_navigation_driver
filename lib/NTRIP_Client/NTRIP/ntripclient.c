@@ -20,7 +20,6 @@
 */
 
 #include "ntripclient.h"
-#include "../../rs232/rs232.h"
 
 
 /* CVS revision and version */

@@ -118,7 +118,8 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories( 
-# include
+  include
+  lib
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -135,7 +136,8 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(advanced_navigation_driver src/an_driver.cpp src/spatial_packets.c src/an_packet_protocol.c src/rs232/rs232.c src/NTRIP_Client/NTRIP/ntripclient.c)
+add_executable(advanced_navigation_driver src/an_driver.cpp src/spatial_packets.c src/an_packet_protocol.c lib/rs232/rs232.c lib/NTRIP_Client/NTRIP/ntripclient.c)
+add_executable(ntrip_client_node src/ntrip_client.cpp lib/NTRIP_Client/NTRIP/ntripclient.c)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -152,6 +154,11 @@ target_link_libraries(advanced_navigation_driver
    ${catkin_LIBRARIES}
  )
 
+ target_link_libraries(ntrip_client_node
+   ${catkin_LIBRARIES}
+ )
+
+
 #############
 ## Install ##
 #############
@@ -167,7 +174,7 @@ target_link_libraries(advanced_navigation_driver
 # )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS ${PROJECT_NAME} advanced_navigation_driver
+install(TARGETS ${PROJECT_NAME} advanced_navigation_driver ntrip_client_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
