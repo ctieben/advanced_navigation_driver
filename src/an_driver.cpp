@@ -780,7 +780,7 @@ int main(int argc, char *argv[]) {
 		
 		char nmea[MAX_NMEA_STRING_LENGTH];
 		int n = generateGPGGA(nmea, system_state_packet);
-		ROS_WARN_STREAM(nmea);		
+		//ROS_WARN_STREAM(nmea);		
 		args.nmea = nmea;
 
 		nmea_msgs::Sentence nmea_msg;
