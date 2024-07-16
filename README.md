@@ -10,9 +10,8 @@ It is designed to work with all Advanced Navigation INS devices using ANPP.
 
 The code has been written to be easy to understand and for ease of extensibility with other ANPP packets.
 
-This example has been developed and tested using **Ubuntu Linux v16.04 LTS** and **ROS1 Lunar**. Installation instructions for ROS1 can be found here: http://wiki.ros.org/lunar/Installation/Ubuntu
+This example has been developed and tested using **Ubuntu Linux v20.04 LTS (Focal)** and **ROS1 Noetic**. 
 
-If you require any assistance using this code, please email support@advancednavigation.com
 
 **NOTE: This ROS1 Drive does include**
 - Bug Fixes from [ros-drivers/advanced_navigation_driver](https://github.com/ros-drivers/advanced_navigation_driver/pulls):
@@ -26,23 +25,12 @@ If you require any assistance using this code, please email support@advancednavi
   - Logging ANPP
 
 
-## ROS1 Getting Started Guide
-
-The following guides are useful in getting started with ROS1 if you are not familiar:
-
-- Setting up a ROS1 Workspace: http://wiki.ros.org/catkin/Tutorials/create_a_workspace
-- Basic Tutorial on importing an Example ROS1 code and compiling and running: http://wiki.ros.org/ROS/Tutorials/WritingPublisherSubscriber%28c%2B%2B%29
-- Set up your serial port so they are visible: 
- ```
-  sudo adduser user_name dialout
-  ```
-
 ## Build Instruction
 
 - Open a New Terminal, and navigate to `workspace-folder-name\src\`
 - Get the Advanced Navigation ROS1 Driver   
   ```
-  git clone https://github.com/advanced-navigation/ros1-driver.git
+  git clone https://github.com/DFKI-NI/advanced_navigation_driver.git
   ```
 
 - In the root of your workspace, `workspace-folder-name`, source and build the package:
@@ -60,6 +48,11 @@ The following guides are useful in getting started with ROS1 if you are not fami
 To use this example code, your Advanced Navigation device should be configured to output ANPP packets #20 and #28.
 
 If you are not sure how to configure your Advanced Navigation Device please refer to the Reference Manual on the relevant product page (https://www.advancednavigation.com/products/all). 
+
+- Set up your serial port so they are visible: 
+ ```
+  sudo adduser user_name dialout
+  ```
 
 
 
